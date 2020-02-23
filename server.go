@@ -12,7 +12,7 @@ func main() {
 	e := echo.New()
   e.GET("/user/get", userGet)//ログイン認証情報からユーザー情報を取ってくる
 	e.POST("/user/create", userCreate)//ユーザー情報の生成
-	
+	e.PUT("/user/update", userUpdate)//ユーザー情報のアップデート
   e.Logger.Fatal(e.Start(":1323"))
 }
 
@@ -37,9 +37,13 @@ func userGet(c echo.Context) error {
 }
 
 func userCreate(c echo.Context) error {
-    name := c.FormValue("name")
-		email := c.FormValue("email")
-    password := c.FormValue("password")
+		u := new(Users)
+		if err := c.Bind(u); err != nil {
+		return err
+		}
+		name := u.Name
+		email := u.Email
+		password :=u.Password
 		db, err := sqlConnect()
     if err != nil {
         panic(err.Error())
@@ -55,6 +59,28 @@ func userCreate(c echo.Context) error {
         return(err)
     }
 		return c.String(http.StatusOK, "データ追加成功")
+}
+
+func userUpdate(c echo.Context) error {
+		u := new(Users)
+		if err := c.Bind(u); err != nil {
+		return err
+	  }
+		id := u.ID
+		name := u.Name
+		db, err := sqlConnect()
+    if err != nil {
+        panic(err.Error())
+    }
+    defer db.Close()
+
+		error := db.Model(Users{}).Where("id = ?", id).Update(&Users{
+        Name: name,
+    }).Error
+    if error != nil {
+        return(err)
+    }
+		return c.String(http.StatusOK, "データアップデート成功")
 }
 
 // SQLConnect DB接続
