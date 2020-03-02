@@ -6,46 +6,46 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo"
 	"net/http"
-	"time"
 	"strconv"
+	"time"
 )
 
 //UserGet データベースからユーザー情報を取り、トークンの生成
 func UserGet() echo.HandlerFunc {
-    return func(c echo.Context) error {
-	email := c.QueryParam("email")
-	password := c.QueryParam("password")
-	db, err := sqlConnect()
-	if err != nil {
-		return c.String(http.StatusInternalServerError, "サーバーエラー")
-	}
-	defer db.Close()
-
-	result := []*Users{}
-	error := db.Where(&Users{Email: email, Password: password}).Find(&result).Error
-	if error != nil || len(result) == 0 {
-		fmt.Println(error)
-	}
-	for _, user := range result {
-		// Create token
-		token := jwt.New(jwt.SigningMethodHS256)
-
-		// Set claims
-		claims := token.Claims.(jwt.MapClaims)
-		claims["id"] = strconv.Itoa(user.ID)
-		claims["admin"] = true
-		claims["exp"] = time.Now().Add(time.Hour * 72).Unix()
-		// Generate encoded token and send it as response.
-		t, err := token.SignedString([]byte("secret"))
+	return func(c echo.Context) error {
+		email := c.QueryParam("email")
+		password := c.QueryParam("password")
+		db, err := sqlConnect()
 		if err != nil {
-			return err
+			return c.String(http.StatusInternalServerError, "サーバーエラー")
 		}
-		return c.JSON(http.StatusOK, map[string]string{
-			"token": t,
-		})
+		defer db.Close()
+
+		result := []*Users{}
+		error := db.Where(&Users{Email: email, Password: password}).Find(&result).Error
+		if error != nil || len(result) == 0 {
+			fmt.Println(error)
+		}
+		for _, user := range result {
+			// Create token
+			token := jwt.New(jwt.SigningMethodHS256)
+
+			// Set claims
+			claims := token.Claims.(jwt.MapClaims)
+			claims["id"] = strconv.Itoa(user.ID)
+			claims["admin"] = true
+			claims["exp"] = time.Now().Add(time.Hour * 72).Unix()
+			// Generate encoded token and send it as response.
+			t, err := token.SignedString([]byte("secret"))
+			if err != nil {
+				return err
+			}
+			return c.JSON(http.StatusOK, map[string]string{
+				"token": t,
+			})
+		}
+		return c.String(http.StatusNotFound, "emailかパスワードが違います。")
 	}
-	return c.String(http.StatusNotFound, "emailかパスワードが違います。")
-}
 }
 
 //UserCreate 情報作成
@@ -75,32 +75,31 @@ func UserCreate(c echo.Context) error {
 }
 
 //UserUpdate ユーザー情報のアップデート
-func UserUpdate() echo.HandlerFunc  {
-    return func(c echo.Context) error {
-        user := c.Get("user").(*jwt.Token)
-        claims := user.Claims.(jwt.MapClaims)
-        sid := claims["id"].(string)
-				id,_ :=strconv.Atoi(sid)
-				//リクエストボディからネーム情報を取得
-						//u := new(Users)
-						name := "だいすけ"
-						fmt.Println(c.QueryParam("name"))
-						db, err := sqlConnect()
-						if err != nil {
-							return c.String(http.StatusInternalServerError, "サーバーエラー")
-						}
-						defer db.Close()
+func UserUpdate() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		user := c.Get("user").(*jwt.Token)
+		claims := user.Claims.(jwt.MapClaims)
+		sid := claims["id"].(string)
+		id, _ := strconv.Atoi(sid)
+		//リクエストボディからネーム情報を取得
+		//u := new(Users)
+		name := "だいすけ"
+		fmt.Println(c.QueryParam("name"))
+		db, err := sqlConnect()
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "サーバーエラー")
+		}
+		defer db.Close()
 
-						error := db.Model(Users{}).Where("id = ?", id).Update(&Users{
-							Name: name,
-						}).Error
-						if error != nil {
-							return c.String(http.StatusNotFound, "再ログインしてください")
-						}
-						return c.String(http.StatusOK, "データアップデート成功")
-					}
-    }
-
+		error := db.Model(Users{}).Where("id = ?", id).Update(&Users{
+			Name: name,
+		}).Error
+		if error != nil {
+			return c.String(http.StatusNotFound, "再ログインしてください")
+		}
+		return c.String(http.StatusOK, "データアップデート成功")
+	}
+}
 
 // func UserUpdate(c echo.Context) error {
 // 	u := new(Users)
