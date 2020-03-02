@@ -7,15 +7,17 @@ import (
 	"github.com/labstack/echo"
 	"net/http"
 	"time"
+	"strconv"
 )
 
-//UserGet 情報を取ってくる
-func UserGet(c echo.Context) error {
+//UserGet データベースからユーザー情報を取り、トークンの生成
+func UserGet() echo.HandlerFunc {
+    return func(c echo.Context) error {
 	email := c.QueryParam("email")
 	password := c.QueryParam("password")
 	db, err := sqlConnect()
 	if err != nil {
-		return c.String(http.StatusInternalServerError,"サーバーエラー")
+		return c.String(http.StatusInternalServerError, "サーバーエラー")
 	}
 	defer db.Close()
 
@@ -30,7 +32,7 @@ func UserGet(c echo.Context) error {
 
 		// Set claims
 		claims := token.Claims.(jwt.MapClaims)
-		claims["id"] = user.ID
+		claims["id"] = strconv.Itoa(user.ID)
 		claims["admin"] = true
 		claims["exp"] = time.Now().Add(time.Hour * 72).Unix()
 		// Generate encoded token and send it as response.
@@ -42,7 +44,8 @@ func UserGet(c echo.Context) error {
 			"token": t,
 		})
 	}
-	return c.String(http.StatusNotFound,"emailかパスワードが違います。")
+	return c.String(http.StatusNotFound, "emailかパスワードが違います。")
+}
 }
 
 //UserCreate 情報作成
@@ -56,7 +59,7 @@ func UserCreate(c echo.Context) error {
 	password := u.Password
 	db, err := sqlConnect()
 	if err != nil {
-		return c.String(http.StatusInternalServerError,"サーバーエラー")
+		return c.String(http.StatusInternalServerError, "サーバーエラー")
 	}
 	defer db.Close()
 
@@ -66,33 +69,60 @@ func UserCreate(c echo.Context) error {
 		Password: password,
 	}).Error
 	if error != nil {
-		return c.String(http.StatusInternalServerError,"サーバーエラー")
+		return c.String(http.StatusInternalServerError, "サーバーエラー")
 	}
 	return c.String(http.StatusOK, "データ追加成功")
 }
 
 //UserUpdate ユーザー情報のアップデート
-func UserUpdate(c echo.Context) error {
-	u := new(Users)
-	if err := c.Bind(u); err != nil {
-		return err
-	}
-	id := u.ID
-	name := u.Name
-	db, err := sqlConnect()
-	if err != nil {
-		panic(err.Error())
-	}
-	defer db.Close()
+func UserUpdate() echo.HandlerFunc  {
+    return func(c echo.Context) error {
+        user := c.Get("user").(*jwt.Token)
+        claims := user.Claims.(jwt.MapClaims)
+        sid := claims["id"].(string)
+				id,_ :=strconv.Atoi(sid)
+				//リクエストボディからネーム情報を取得
+						//u := new(Users)
+						name := "だいすけ"
+						fmt.Println(c.QueryParam("name"))
+						db, err := sqlConnect()
+						if err != nil {
+							return c.String(http.StatusInternalServerError, "サーバーエラー")
+						}
+						defer db.Close()
 
-	error := db.Model(Users{}).Where("id = ?", id).Update(&Users{
-		Name: name,
-	}).Error
-	if error != nil {
-		return c.String(http.StatusInternalServerError,"サーバーエラー")
-	}
-	return c.String(http.StatusOK, "データアップデート成功")
-}
+						error := db.Model(Users{}).Where("id = ?", id).Update(&Users{
+							Name: name,
+						}).Error
+						if error != nil {
+							return c.String(http.StatusNotFound, "再ログインしてください")
+						}
+						return c.String(http.StatusOK, "データアップデート成功")
+					}
+    }
+
+
+// func UserUpdate(c echo.Context) error {
+// 	u := new(Users)
+// 	if err := c.Bind(u); err != nil {
+// 		return err
+// 	}
+// 	id := u.ID
+// 	name := u.Name
+// 	db, err := sqlConnect()
+// 	if err != nil {
+// 		panic(err.Error())
+// 	}
+// 	defer db.Close()
+//
+// 	error := db.Model(Users{}).Where("id = ?", id).Update(&Users{
+// 		Name: name,
+// 	}).Error
+// 	if error != nil {
+// 		return c.String(http.StatusInternalServerError,"サーバーエラー")
+// 	}
+// 	return c.String(http.StatusOK, "データアップデート成功")
+// }
 
 // SQLConnect DB接続
 func sqlConnect() (database *gorm.DB, err error) {
